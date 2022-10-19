@@ -81,8 +81,6 @@ def get_args():
   # Train data arguments
   parser.add_argument("--train_data", type=str, default='snli',
           help="'snli' or 'sick'")
-  parser.add_argument("--sick_data", type=str, default='normal',
-          help="'normal' or 'corrected', changing the sick data for training")
 
   params, _ = parser.parse_known_args()
 

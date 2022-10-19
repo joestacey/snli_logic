@@ -112,10 +112,7 @@ def prepare_all_dataloaders(
         esnli_dataloaders.update(test_dataloader_dict)
 
     elif params.train_data == 'sick':
-        if params.sick_data == 'normal':
-            sick_folder = '/SICK/uncorrected_SICK/'
-        elif params.sick_data == 'corrected':
-            sick_folder = '/SICK/corrected_SICK/'
+        sick_folder = '/SICK/uncorrected_SICK/'
 
         sick_dict = add_sick(
         'sick_train',

@@ -380,7 +380,7 @@ class LogicModel(nn.Module):
             
         obs_logits = span_outputs_dict['logits']
 
-        obs_cls = span_outputs_dict['hidden_states'][12][:,0,:]
+        obs_cls = span_outputs_dict['hidden_states'][-1][:,0,:]
 
         span_dict = {
                 'true_label': batch['label'][obs_no],

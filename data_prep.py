@@ -186,7 +186,7 @@ def _load_hf_dataset(dataset_dict: dict) -> Dataset:
 def _format_esnli(esnli_df: pd.DataFrame) -> pd.DataFrame:
 
     # Updating column names
-    esnli_df['premise'] = esnli_df['Sentence1']
+    esnli_df['premise'] = esnli_df['Sentence1'] #+ " " + esnli_df['Explanation_1']
     esnli_df['hypothesis'] = esnli_df['Sentence2']
     esnli_df['label'] = esnli_df['gold_label']
 
@@ -201,6 +201,24 @@ def _format_esnli(esnli_df: pd.DataFrame) -> pd.DataFrame:
 
     return esnli_df
 
+
+def _format_esnli_train(esnli_df: pd.DataFrame) -> pd.DataFrame:
+
+    # Updating column names
+    esnli_df['premise'] = esnli_df['Sentence1'] + " " + esnli_df['Explanation_1']
+    esnli_df['hypothesis'] = esnli_df['Sentence2']
+    esnli_df['label'] = esnli_df['gold_label']
+
+    # Label needs to be 0, 1 or 2
+    esnli_df['label'].loc[esnli_df['label'] == 'entailment'] = 0
+    esnli_df['label'].loc[esnli_df['label'] == 'neutral'] = 1
+    esnli_df['label'].loc[esnli_df['label'] == 'contradiction'] = 2
+
+    # Both sentences need to be strings
+    esnli_df['premise'] = esnli_df['premise'].apply(lambda x: str(x))
+    esnli_df['hypothesis'] = esnli_df['hypothesis'].apply(lambda x: str(x))
+
+    return esnli_df
 
 def _reduce_size(
         esnli_df: pd.DataFrame, 
@@ -252,10 +270,15 @@ def _prepare_esnli_data(
     if params.reduce:
         esnli_df = _reduce_size(esnli_df, params.reduce_number)
     
-    esnli_df = _format_esnli(esnli_df)
-    esnli_dataset = Dataset.from_pandas(esnli_df)
-    esnli_dataset = _filter_labels(esnli_dataset)
-
+    if is_train==True:
+        esnli_df = _format_esnli_train(esnli_df)
+        esnli_dataset = Dataset.from_pandas(esnli_df)
+        esnli_dataset = _filter_labels(esnli_dataset)
+    else:
+        esnli_df = _format_esnli(esnli_df)
+        esnli_dataset = Dataset.from_pandas(esnli_df)
+        esnli_dataset = _filter_labels(esnli_dataset)
+        
     if params.span_groups != 'none':
         span_dictionary = create_span_masks(
                 params, 

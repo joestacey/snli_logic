@@ -21,7 +21,8 @@ from utils_metrics import calculate_f1_and_print, update_confusion_matrix
 from data_prep import create_dictionary_of_hf_ood_datasets, \
         prepare_all_dataloaders
 from models import LogicModel
-
+import warnings
+warnings.filterwarnings('ignore')
 
 def get_args():
 
@@ -174,7 +175,7 @@ def evaluate_esnli_spans(
     # We count eSNLI spans for the individual observation
     obs_total_esnli_span = 0
     obs_correct_esnli_span = 0
-
+    results = []
     # We count up how many eSNLI spans there are
     for span_no in range(len(outputs['supervise_span_or_not'])):
         if outputs['supervise_span_or_not'][span_no] != False:
@@ -197,7 +198,6 @@ def evaluate_esnli_spans(
                         obs_correct_esnli_span += 1
 
     return obs_correct_esnli_span, obs_total_esnli_span, confusion_dict
-
 
 @torch.no_grad()
 def evaluate(dataset_name: str, 
@@ -228,9 +228,13 @@ def evaluate(dataset_name: str,
 
     dataloader, span_mask_list_all, esnli_spans \
             = dataloader_eval
-
+            
+        
+    final_res = []
+    import pandas as pd
+    counter = 0
     for i, batch in enumerate(dataloader):
-
+        
         batch = {k: v.to(device) for k, v in batch.items()}
 
         for obs_no in range(batch['input_ids'].shape[0]):
@@ -240,7 +244,6 @@ def evaluate(dataset_name: str,
                     obs_no, 
                     span_mask_list_all, 
                     esnli_spans)
-            
             # Evaluating eSNLI spans
             obs_correct_esnli_span, obs_total_esnli_span, confusion_dict  = \
                 evaluate_esnli_spans(confusion_dict, outputs)
@@ -253,7 +256,11 @@ def evaluate(dataset_name: str,
                     outputs['cont']['att_unnorm'], 
                     outputs['neutral']['att_unnorm'],
                     dataset_name)
-
+            
+            file1 = open(f"{dataset_name}_predictions.txt", "a")  # append mode
+            file1.write(f"observation: {dataloader.dataset['pairID'][counter]}, prediction output: {pred_logic_att}, contradiction probs: {torch.max(outputs['cont']['att_unnorm'])}, neutral probs: {torch.max(outputs['neutral']['att_unnorm'])} \n")
+            counter+=1
+            
             total += 1
             if pred_logic_att == batch['label'][obs_no].item():
                 correct_logic_att = correct_logic_att + 1
@@ -263,6 +270,11 @@ def evaluate(dataset_name: str,
 
     model_log.msg(["Total correct & total:" + \
             str(round(correct_logic_att, 4)) + " & " + str(round(total, 4))])
+    
+    
+    
+    
+    
 
 
 def get_att_loss(
@@ -288,7 +300,7 @@ def get_att_loss(
         additional_loss_term: updated additional loss for observation
     """
 
-    # Sent loss
+    # Sent loss   SENT_OUTPUT PROBABILITY DÖNÜYOR - LABEL **2 NASIL Bİ LOSS HESABI ? 
     sent_loss += (outputs[class_str]['sent_output'] \
                             - outputs[class_str]['label'])**2
 
@@ -400,14 +412,15 @@ def evaluate_each_epoch(epoch: int) -> None:
 
     # We evaluate on the eSNLI dev data
     for dataset_name, dataset in esnli_dataloaders.items():
+        print(dataset_name)
         if dataset_name != 'esnli_train' or params.reduce:
             model_log.msg(["Dataset: " + dataset_name])
             evaluate(dataset_name, dataset)
-
-    # We evaluate on other huggingface evaluation datasets
-    for dataset_name, dataset in eval_dataloaders.items():
-        model_log.msg(["Dataset: " + dataset_name])
-        evaluate(dataset_name, dataset)
+    print('finish')
+    # # We evaluate on other huggingface evaluation datasets
+    # for dataset_name, dataset in eval_dataloaders.items():
+    #     model_log.msg(["Dataset: " + dataset_name])
+    #     evaluate(dataset_name, dataset)
 
 
 def create_lr_schedules():
@@ -485,11 +498,11 @@ if __name__ == '__main__':
                     params,
                     tokenizer)
 
-    # We add additional OOD datasets
-    eval_dataloaders = load_ood_datasets(
-            eval_dataloaders,
-            params,
-            tokenizer)
+    # # We add additional OOD datasets
+    # eval_dataloaders = load_ood_datasets(
+    #         eval_dataloaders,
+    #         params,
+    #         tokenizer)
 
     if params.model_type == 'microsoft/deberta-large' or \
             params.model_type == 'microsoft/deberta-xlarge':
@@ -545,3 +558,9 @@ if __name__ == '__main__':
         torch.save(logic_model.state_dict(),
                             os.getcwd() + "/savedmodel/saved_model_" \
                                     + name_id + '.pt')
+
+
+#python run.py --eval_only 1 --model_file saved_model_reduced_1000_seed_42
+
+#python run.py --linear_schedule 0 --epochs 10 --reduce 1 --reduce_number 1000 --span_supervision 1 --name_id reduced_1000_seed_42 --learning_rate 1e-05 --random_seed 42 
+
